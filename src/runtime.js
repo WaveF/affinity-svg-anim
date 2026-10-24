@@ -27,13 +27,34 @@
     }
     var EASE = {
         linear: function (t) { return t; },
+        sineIn: function (t) { return 1 - Math.cos(t * Math.PI / 2); },
+        sineOut: function (t) { return Math.sin(t * Math.PI / 2); },
+        sineInOut: function (t) { return -(Math.cos(Math.PI * t) - 1) / 2; },
+        quadIn: function (t) { return t * t; },
+        quadOut: function (t) { return 1 - (1 - t) * (1 - t); },
+        quadInOut: function (t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; },
+        // The original Ease in/out/in-out curves are Cubic; retain their IDs.
         'in': function (t) { return t * t * t; },
         out: function (t) { return 1 - Math.pow(1 - t, 3); },
         inOut: function (t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; },
-        sineInOut: function (t) { return -(Math.cos(Math.PI * t) - 1) / 2; },
+        quartIn: function (t) { return t * t * t * t; },
+        quartOut: function (t) { return 1 - Math.pow(1 - t, 4); },
+        quartInOut: function (t) { return t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2; },
+        quintIn: function (t) { return t * t * t * t * t; },
+        quintOut: function (t) { return 1 - Math.pow(1 - t, 5); },
+        quintInOut: function (t) { return t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2; },
+        expoIn: function (t) { return t <= 0 || t >= 1 ? (t <= 0 ? 0 : 1) : Math.pow(2, 10 * t - 10); },
+        expoOut: function (t) { return t <= 0 || t >= 1 ? (t <= 0 ? 0 : 1) : 1 - Math.pow(2, -10 * t); },
         expoInOut: function (t) {
             if (t <= 0 || t >= 1) return t <= 0 ? 0 : 1;
             return t < 0.5 ? Math.pow(2, 20 * t - 10) / 2 : (2 - Math.pow(2, -20 * t + 10)) / 2;
+        },
+        circIn: function (t) { return 1 - Math.sqrt(1 - t * t); },
+        circOut: function (t) { return Math.sqrt(1 - Math.pow(t - 1, 2)); },
+        circInOut: function (t) {
+            return t < 0.5
+                ? (1 - Math.sqrt(1 - Math.pow(2 * t, 2))) / 2
+                : (Math.sqrt(1 - Math.pow(-2 * t + 2, 2)) + 1) / 2;
         },
         backIn: function (t) { return C3 * t * t * t - C1 * t * t; },
         backOut: function (t) { return 1 + C3 * Math.pow(t - 1, 3) + C1 * Math.pow(t - 1, 2); },
@@ -42,11 +63,22 @@
                 ? (Math.pow(2 * t, 2) * ((C2 + 1) * 2 * t - C2)) / 2
                 : (Math.pow(2 * t - 2, 2) * ((C2 + 1) * (t * 2 - 2) + C2) + 2) / 2;
         },
+        elasticIn: function (t) {
+            if (t <= 0 || t >= 1) return t <= 0 ? 0 : 1;
+            return -Math.pow(2, 10 * t - 10) * Math.sin((t * 10 - 10.75) * (2 * Math.PI) / 3);
+        },
         elasticOut: function (t) {
             if (t <= 0 || t >= 1) return t <= 0 ? 0 : 1;
             return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * (2 * Math.PI) / 3) + 1;
         },
-        bounceOut: bounceOut
+        elasticInOut: function (t) {
+            if (t <= 0 || t >= 1) return t <= 0 ? 0 : 1;
+            var wave = Math.sin((20 * t - 11.125) * (2 * Math.PI) / 4.5);
+            return t < 0.5 ? -Math.pow(2, 20 * t - 10) * wave / 2 : Math.pow(2, -20 * t + 10) * wave / 2 + 1;
+        },
+        bounceIn: function (t) { return 1 - bounceOut(1 - t); },
+        bounceOut: bounceOut,
+        bounceInOut: function (t) { return t < 0.5 ? (1 - bounceOut(1 - 2 * t)) / 2 : (1 + bounceOut(2 * t - 1)) / 2; }
     };
 
     // --------------------------------------------------------------- helpers

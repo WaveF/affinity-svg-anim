@@ -101,7 +101,7 @@ function buildAnimatePanel(doc, left, right, state) {
     c.delay = num(timing, 'Delay (s)', 0, 0, null, 2);
     c.stagger = num(timing, 'Stagger per child (s)', 0.1, 0, null, 2);
     c.order = timing.addComboBox('Stagger order', ORDER_LABELS, 0);
-    c.ease = timing.addComboBox('Easing', EASE_LABELS, 3);
+    c.ease = timing.addComboBox('Easing', EASE_LABELS, EASES.indexOf(COMMON_DEFAULTS.ease));
     c.dir = timing.addComboBox('Direction', DIR_LABELS, 2);
     c.loops = num(timing, 'Play count (0 = forever)', 0, 0, null, 0);
     c.loopDelay = num(timing, 'Pause between plays (s)', 0, 0, null, 2);

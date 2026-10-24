@@ -1,6 +1,6 @@
 {
   "name": "affinity-svg-anim",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Affinity script to animate elements and export animated SVG, plus a dependency-free SVG animation player.",
   "license": "MIT",
   "author": "WaveF <wavef@live.com> (https://minicg.com)",
@@ -12,6 +12,8 @@
   "scripts": {
     "build": "node build.js",
     "test:core": "node tests/core.node.js",
+    "test:easing": "node tests/easing.node.js",
+    "test:easing:affinity": "node tests/harness.js dist/svg-anim-v$npm_package_version.js tests/easing.scenario.js",
     "test:dialog": "node tests/harness.js dist/svg-anim-v$npm_package_version.js tests/dialog.scenario.js",
     "test:export": "node tests/harness.js dist/svg-anim-v$npm_package_version.js tests/export.scenario.js tests/fixtures/legacy.js"
   },

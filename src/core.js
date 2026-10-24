@@ -17,8 +17,33 @@ const TYPES = ['none', 'fade', 'move', 'rotate', 'scale', 'draw', 'count', 'cloc
 const TYPE_LABELS = ['None', 'Fade', 'Move', 'Rotate', 'Scale', 'Draw stroke', 'Count number', 'Clock', 'Frames'];
 const TARGETS = ['self', 'children'];
 const TARGET_LABELS = ['Element', 'Each child'];
-const EASES = ['linear', 'in', 'out', 'inOut', 'sineInOut', 'expoInOut', 'backIn', 'backOut', 'backInOut', 'elasticOut', 'bounceOut'];
-const EASE_LABELS = ['Linear', 'Ease in', 'Ease out', 'Ease in-out', 'Sine in-out', 'Expo in-out', 'Back in', 'Back out', 'Back in-out', 'Elastic out', 'Bounce out'];
+// Cubic keeps the original in/out/inOut IDs so saved animations stay compatible.
+const EASES = [
+    'linear',
+    'sineIn', 'sineOut', 'sineInOut',
+    'quadIn', 'quadOut', 'quadInOut',
+    'in', 'out', 'inOut',
+    'quartIn', 'quartOut', 'quartInOut',
+    'quintIn', 'quintOut', 'quintInOut',
+    'expoIn', 'expoOut', 'expoInOut',
+    'circIn', 'circOut', 'circInOut',
+    'backIn', 'backOut', 'backInOut',
+    'elasticIn', 'elasticOut', 'elasticInOut',
+    'bounceIn', 'bounceOut', 'bounceInOut'
+];
+const EASE_LABELS = [
+    'Linear',
+    'Sine in', 'Sine out', 'Sine in-out',
+    'Quad in', 'Quad out', 'Quad in-out',
+    'Cubic in', 'Cubic out', 'Cubic in-out',
+    'Quart in', 'Quart out', 'Quart in-out',
+    'Quint in', 'Quint out', 'Quint in-out',
+    'Expo in', 'Expo out', 'Expo in-out',
+    'Circ in', 'Circ out', 'Circ in-out',
+    'Back in', 'Back out', 'Back in-out',
+    'Elastic in', 'Elastic out', 'Elastic in-out',
+    'Bounce in', 'Bounce out', 'Bounce in-out'
+];
 const DIRS = ['normal', 'reverse', 'alternate', 'alternateReverse'];
 const DIR_LABELS = ['Normal', 'Reverse', 'Alternate', 'Alternate reverse'];
 const ORDERS = ['forward', 'reverse', 'center', 'random'];
