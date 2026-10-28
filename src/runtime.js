@@ -203,7 +203,7 @@
             g: g, bbox: bbox,
             inv: [d / det, -b / det, -c / det, a / det],
             flip: det < 0 ? -1 : 1,
-            moves: [], rotates: [], scales: [], opacity: 1, dirty: false
+            moves: [], rotates: [], scales: [], skews: [], opacity: 1, dirty: false
         };
         el.__svgAnimSlot = slot;
         slots.push(slot);
@@ -216,13 +216,13 @@
     }
     function r4(v) { return Math.round(v * 10000) / 10000; }
     function flushSlot(s) {
-        var ops = s.moves.concat(s.rotates, s.scales);
+        var ops = s.moves.concat(s.rotates, s.scales, s.skews);
         if (ops.length) s.g.setAttribute('transform', ops.join(' '));
         else if (s.dirty) s.g.removeAttribute('transform');
         if (s.opacity !== 1) s.g.style.opacity = String(r4(s.opacity));
         else if (s.dirty) s.g.style.opacity = '';
         s.dirty = ops.length > 0 || s.opacity !== 1;
-        s.moves.length = 0; s.rotates.length = 0; s.scales.length = 0; s.opacity = 1;
+        s.moves.length = 0; s.rotates.length = 0; s.scales.length = 0; s.skews.length = 0; s.opacity = 1;
     }
 
     // --------------------------------------------------------------- players
@@ -265,7 +265,7 @@
     Player.prototype.setup = function () {
         var self = this, spec = this.spec;
         switch (this.type) {
-            case 'fade': case 'move': case 'rotate': case 'scale':
+            case 'fade': case 'move': case 'rotate': case 'scale': case 'skew':
                 this.slots = this.targets.map(slotFor);
                 break;
             case 'draw':
@@ -373,6 +373,17 @@
                     var pc = pivotOf(slot, s.pivot);
                     if (sx !== 1 || sy !== 1) {
                         slot.scales.push('translate(' + r4(pc[0]) + ' ' + r4(pc[1]) + ') scale(' + r4(sx) + ' ' + r4(sy) + ') translate(' + r4(-pc[0]) + ' ' + r4(-pc[1]) + ')');
+                    }
+                }
+                break;
+            case 'skew':
+                for (i = 0; i < n; i++) {
+                    pr = this.progress(i); slot = this.slots[i];
+                    // SVG parent axes, like Scale; angles and easing overshoot stay unbounded.
+                    var ax = num(s.ax, 20) * pr.e, ay = num(s.ay, 0) * pr.e;
+                    var ps = pivotOf(slot, s.pivot);
+                    if (ax || ay) {
+                        slot.skews.push('translate(' + r4(ps[0]) + ' ' + r4(ps[1]) + ') skewX(' + r4(ax) + ') skewY(' + r4(ay) + ') translate(' + r4(-ps[0]) + ' ' + r4(-ps[1]) + ')');
                     }
                 }
                 break;

@@ -24,7 +24,7 @@ assert.deepEqual(C.normalizeData(JSON.parse(s)), JSON.parse(s));
 assert.equal(C.parseLegacyName('{{y_-50*1_2}}').tracks[0].y, -50);
 assert.equal(C.parseLegacyName('f1'), null);
 // track descriptions stay short enough for 4 per line
-const longest = ['fade','move','rotate','scale','draw','count','clock','frames'].map(k => C.describeTrack(C.newTrack(k)));
+const longest = ['fade','move','rotate','scale','skew','draw','count','clock','frames'].map(k => C.describeTrack(C.newTrack(k)));
 console.log('descriptions:', longest.join(' | '));
 assert.ok(longest.every(x => x.length <= 16));
 console.log('core tests OK, sample tag bytes:', s.length);

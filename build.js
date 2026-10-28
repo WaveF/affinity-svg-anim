@@ -30,7 +30,7 @@ fs.writeFileSync(path.join(DIST, 'svg-anim-runtime.min.js'), minified + '\n');
 
 // ---- Affinity script
 const NAME = 'SVG Anim';
-const DESCRIPTION = 'Animate elements and export them as an animated SVG, in one dialog. Animate mode: up to eight tracks per element (Fade, Move, Rotate, Scale, Draw stroke, Count number, Clock, Frames) with duration, delay, stagger, easing, direction, repeats and start trigger (load, visible, click, hover), stored in the element metadata and shown again when reselected; animated layers get a name suffix (default __anim). Export mode: the document, current spread or an artboard as SVG with the animation data and an embedded or linked (jsDelivr) player, plus an optional HTML preview page.';
+const DESCRIPTION = 'Animate elements and export them as an animated SVG, in one dialog. Animate mode: up to eight tracks per element (Fade, Move, Rotate, Scale, Skew, Draw stroke, Count number, Clock, Frames) with duration, delay, stagger, easing, direction, repeats and start trigger (load, visible, click, hover), stored in the element metadata and shown again when reselected; animated layers get a name suffix (default __anim). JSON preset import/export reuses the complete track setup; Clear removes all tracks on OK, and arrow buttons reorder tracks. Export mode: the document, current spread or an artboard as SVG with the animation data and an embedded or linked (jsDelivr) player, plus an optional HTML preview page.';
 const header = [
     '/**',
     ' * name: ' + NAME,
@@ -59,7 +59,7 @@ const header = [
     'const RUNTIME_SOURCE = ' + JSON.stringify(minified) + ';',
     ''
 ].join('\n');
-const body = header + '\n' + ['core.js', 'animate.js', 'export.js', 'main.js'].map(read).join('\n') + '\nmain();\n';
+const body = header + '\n' + ['core.js', 'animate.js', 'export.js', 'config.js', 'main.js'].map(read).join('\n') + '\nmain();\n';
 const scriptName = 'svg-anim-v' + VERSION + '.js';
 const outPath = path.join(DIST, scriptName);
 fs.writeFileSync(outPath, body);

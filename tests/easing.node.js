@@ -30,6 +30,10 @@ assert.equal(C.newTrack('count').ease, 'out');
 const ctl = values => Object.assign({isVisible: true, setIsFullWidth() { return this; }}, values);
 const group = {
     addGroup() { return this; },
+    addColumnStack() { return this; },
+    addColumn() { return this; },
+    setEnableSeparator() { return this; },
+    addButton: label => ctl({label}),
     addStaticText: (label, text) => ctl({text}),
     addComboBox: (label, labels, selectedIndex) => ctl({labels, selectedIndex}),
     addButtonSet: (label, labels, selectedIndex) => ctl({labels, selectedIndex}),

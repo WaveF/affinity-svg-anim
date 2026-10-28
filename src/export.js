@@ -192,6 +192,10 @@ function buildExportPanel(left, right, ctx) {
     c.file = out.addTextBox('File name (blank = automatic)', '');
     c.html = out.addSwitch('Also write an HTML preview page', true);
     c.fileHint = out.addStaticText(null, '').setIsFullWidth();
+    // Export may be the initial mode (no selection). Reserve the same tall
+    // dialog budget before the user switches to Animate.
+    c.layoutSpace = out.addStaticText(null, '').setIsFullWidth();
+    reserveRows(c.layoutSpace, 11);
 
     const rt = right.addGroup('Player'); groups.push(rt);
     c.runtime = rt.addButtonSet('Player', RUNTIME_LABELS, 0);

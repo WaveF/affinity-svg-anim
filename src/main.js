@@ -9,15 +9,25 @@ function buildDialog(doc, state, ctx) {
     const dialog = Dialog.create(SCRIPT_TITLE);
     dialog.initialWidth = 760;
     const main = dialog.addColumn();
-    const modeGroup = main.addGroup(null);
-    const mode = modeGroup.addButtonSet('Mode', MODE_LABELS, state.items.length ? 0 : 1);
+    const header = main.addGroup(null).addColumnStack();
+    const modeGroup = header.addColumn().addGroup('Mode');
+    const mode = modeGroup.addButtonSet(null, MODE_LABELS, state.items.length ? 0 : 1).setIsFullWidth();
+    const configGroup = header.addColumn().addGroup('Config');
+    const actions = configGroup.addColumnStack();
+    const config = {
+        actions,
+        hint: configGroup.addStaticText(null, 'Only available in Animate mode').setIsFullWidth(),
+        importButton: actions.addColumn().addGroup(null).setEnableSeparator(false).addButton('Import').setIsFullWidth(),
+        exportButton: actions.addColumn().addGroup(null).setEnableSeparator(false).addButton('Export').setIsFullWidth(),
+        clearButton: actions.addColumn().addGroup(null).setEnableSeparator(false).addButton('Clear').setIsFullWidth()
+    };
     const stack = main.addGroup(null).addColumnStack();
     const left = stack.addColumn();
     const right = stack.addColumn();
     const animate = buildAnimatePanel(doc, left, right, state);
     const exporter = buildExportPanel(left, right, ctx);
     const okLine = main.addGroup(null).addStaticText(null, '').setIsFullWidth();
-    return { dialog, mode, animate, exporter, okLine };
+    return { dialog, mode, config, animate, exporter, okLine };
 }
 
 function currentMode(ui) { return MODES[ui.mode.selectedIndex] || 'animate'; }
@@ -40,6 +50,9 @@ function okText(doc, ui, state, ctx, peekTracks) {
 
 function updateDialog(doc, ui, state, ctx, peekTracks) {
     const animateMode = currentMode(ui) === 'animate';
+    setVisible(ui.config.actions, animateMode);
+    for (const key of ['importButton', 'exportButton', 'clearButton']) setVisible(ui.config[key], animateMode);
+    setVisible(ui.config.hint, !animateMode);
     for (const g of ui.animate.groups) setVisible(g, animateMode);
     for (const g of ui.exporter.groups) setVisible(g, !animateMode);
     updateExportControls(doc, ui.exporter.c, ctx);
@@ -59,7 +72,10 @@ function setupDialog(doc) {
     };
     refresh();
     ui.dialog.onControlValueChangedHandler = onChange;
-    return { state, ctx, ui, anim, onChange };
+    const config = attachConfig(ui, anim, ctx, refresh);
+    ui.animate.c.moveLeft.onClickHandler = () => { anim.move(-1); refresh(); };
+    ui.animate.c.moveRight.onClickHandler = () => { anim.move(1); refresh(); };
+    return { state, ctx, ui, anim, config, onChange };
 }
 
 /** Carries out the OK action. Returns a message for the user, or null. */

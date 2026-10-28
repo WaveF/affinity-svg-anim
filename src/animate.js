@@ -71,6 +71,11 @@ function buildAnimatePanel(doc, left, right, state) {
     const track = left.addGroup('Tracks'); groups.push(track);
     c.track = track.addButtonSet('Track', ['1', '2', '3', '4', '5', '6', '7', '8'], 0);
     c.summary = track.addStaticText(null, '').setIsFullWidth();
+    const orderButtons = track.addColumnStack();
+    c.moveLeft = orderButtons.addColumn().addGroup(null).setEnableSeparator(false).addButton('←').setIsFullWidth();
+    c.moveRight = orderButtons.addColumn().addGroup(null).setEnableSeparator(false).addButton('→').setIsFullWidth();
+    c.moveLeft.description = 'Swap the selected track with the previous track.';
+    c.moveRight.description = 'Swap the selected track with the next track.';
 
     const fx = left.addGroup('Effect'); groups.push(fx);
     c.type = fx.addComboBox('Type', TYPE_LABELS, 0);
@@ -82,6 +87,8 @@ function buildAnimatePanel(doc, left, right, state) {
     c.angle = fx.addUnitValueEditor('Angle (clockwise)', UnitType.Degree, UnitType.Degree, 360);
     c.sx = pct(fx, 'Scale X', 120);
     c.sy = pct(fx, 'Scale Y', 120);
+    c.skewX = fx.addUnitValueEditor('Skew X', UnitType.Degree, UnitType.Degree, 20);
+    c.skewY = fx.addUnitValueEditor('Skew Y', UnitType.Degree, UnitType.Degree, 0);
     c.pivot = fx.addSpatialAnchor('Pivot', SpatialAnchor.Centre);
     c.drawMode = fx.addComboBox('Draw', DRAW_LABELS, 0);
     c.drawSeg = pct(fx, 'Segment length', 20, 1, 100);
@@ -96,7 +103,10 @@ function buildAnimatePanel(doc, left, right, state) {
     c.framesHint = fx.addStaticText(null, 'Shows one child at a time, top child last. Duration is one pass through all children.').setIsFullWidth();
     c.typeHint = fx.addStaticText(null, 'Choose a type to animate this track. Set every track to None to remove the animation.').setIsFullWidth();
 
+    c.effectSpace = fx.addStaticText(null, '').setIsFullWidth();
+
     const timing = right.addGroup('Timing'); groups.push(timing);
+    c.timingHint = timing.addStaticText(null, 'Please set a Track Effect first.').setIsFullWidth();
     c.dur = num(timing, 'Duration (s)', 1, 0.01, null, 2);
     c.delay = num(timing, 'Delay (s)', 0, 0, null, 2);
     c.stagger = num(timing, 'Stagger per child (s)', 0.1, 0, null, 2);
@@ -106,6 +116,8 @@ function buildAnimatePanel(doc, left, right, state) {
     c.loops = num(timing, 'Play count (0 = forever)', 0, 0, null, 0);
     c.loopDelay = num(timing, 'Pause between plays (s)', 0, 0, null, 2);
     c.trigger = timing.addComboBox('Start', TRIGGER_LABELS, 0);
+
+    c.timingSpace = timing.addStaticText(null, '').setIsFullWidth();
 
     const layer = right.addGroup('Layer name'); groups.push(layer);
     c.suffix = layer.addTextBox('Suffix', state.suffix);
@@ -131,6 +143,7 @@ function readForm(c) {
         x: round6(c.moveX.value), y: round6(c.moveY.value),
         angle: c.angle.value,
         sx: c.sx.value, sy: c.sy.value,
+        ax: c.skewX.value, ay: c.skewY.value,
         pivot: anchorKey(c.pivot.value),
         mode: DRAW_MODES[c.drawMode.selectedIndex], seg: c.drawSeg.value,
         start: startText === '' ? null : startText, end: c.countEnd.value,
@@ -158,6 +171,7 @@ function loadForm(c, track) {
     c.moveX.value = ofType('x', 0); c.moveY.value = ofType('y', -20);
     c.angle.value = ofType('angle', 360);
     c.sx.value = ofType('sx', 120); c.sy.value = ofType('sy', 120);
+    c.skewX.value = ofType('ax', 20); c.skewY.value = ofType('ay', 0);
     c.pivot.value = anchorValue(ofType('pivot', 'c'));
     c.drawMode.selectedIndex = Math.max(0, DRAW_MODES.indexOf(ofType('mode', 'reveal')));
     c.drawSeg.value = ofType('seg', 20);
@@ -177,6 +191,7 @@ const TYPE_CONTROLS = {
     move: ['moveX', 'moveY'],
     rotate: ['angle', 'pivot'],
     scale: ['sx', 'sy', 'pivot'],
+    skew: ['skewX', 'skewY', 'pivot'],
     draw: ['drawMode', 'drawSeg'],
     count: ['countStart', 'countEnd', 'countDec', 'countPad', 'countGroup', 'countRandom'],
     clock: ['clockFormat', 'clockHint'],
@@ -190,6 +205,13 @@ function setVisible(item, visible) {
     if (item.isVisible !== visible) item.isVisible = visible;
 }
 
+// Keep the initial native dialog tall enough for every type. A two-line blank
+// static text approximates one editor row; the nine-point pivot uses three rows.
+function reserveRows(control, rows) {
+    control.text = Array(Math.max(1, rows * 2)).fill('\u00a0').join('\n');
+    setVisible(control, rows > 0);
+}
+
 /** Two lines: tracks 1–4 and 5–8; ▸ marks the track being edited. */
 function trackSummary(tracks, current) {
     const cell = i => (i + 1) + (i === current ? '▸' : ' ') + describeTrack(tracks[i]);
@@ -201,6 +223,7 @@ function updateAnimateControls(c, tracks, current) {
     const type = TYPES[c.type.selectedIndex] || 'none';
     const shown = new Set(TYPE_CONTROLS[type] || []);
     for (const k of ALL_TYPE_CONTROLS) setVisible(c[k], shown.has(k));
+    setVisible(c.timingHint, type === 'none');
     const animated = type !== 'none' && type !== 'clock';
     const childCapable = type !== 'none' && type !== 'count' && type !== 'clock' && type !== 'frames';
     setVisible(c.target, childCapable);
@@ -212,6 +235,16 @@ function updateAnimateControls(c, tracks, current) {
     setVisible(c.drawSeg, type === 'draw' && c.drawMode.selectedIndex === DRAW_MODES.indexOf('travel'));
     c.loopDelay.isEnabled = c.loops.value !== 1;
     c.summary.text = trackSummary(tracks, current);
+    c.moveLeft.isEnabled = current > 0;
+    c.moveRight.isEnabled = current < MAX_TRACKS - 1;
+    let effectRows = (childCapable ? 1 : 0);
+    for (const k of shown) {
+        if (!c[k].isVisible) continue;
+        effectRows += k === 'pivot' ? 3 : /Hint$/.test(k) ? 2 : 1;
+    }
+    reserveRows(c.effectSpace, Math.max(0, 6 - effectRows));
+    const timingRows = TIMING_CONTROLS.filter(k => c[k].isVisible).length;
+    reserveRows(c.timingSpace, TIMING_CONTROLS.length - timingRows);
 }
 
 /** Wires the panel: switching tracks saves/loads the form; a new type gets its presets. */
@@ -260,7 +293,31 @@ function attachAnimate(panel, state) {
     };
     // Tracks as they would be saved, without disturbing the form.
     const peek = () => tracks.map((t, i) => i === current ? readForm(c) : t).filter(Boolean);
-    return { onChange, collect, peek };
+    // Presets replace all tracks atomically; never write the selected nodes here.
+    const replace = incoming => {
+        for (let i = 0; i < MAX_TRACKS; i++) tracks[i] = incoming[i] || null;
+        current = 0;
+        c.track.selectedIndex = 0;
+        lastType = tracks[0] ? tracks[0].type : 'none';
+        loadForm(c, tracks[0]);
+        updateAnimateControls(c, tracks, current);
+    };
+    const slots = () => tracks.map((t, i) => i === current ? readForm(c) : t);
+    const move = delta => {
+        onChange(); // Flush current form edits before swapping, including a type change.
+        const next = current + delta;
+        if ((delta !== -1 && delta !== 1) || next < 0 || next >= MAX_TRACKS) return false;
+        const other = tracks[next];
+        tracks[next] = tracks[current];
+        tracks[current] = other;
+        current = next;
+        c.track.selectedIndex = current;
+        lastType = tracks[current] ? tracks[current].type : 'none';
+        loadForm(c, tracks[current]);
+        updateAnimateControls(c, tracks, current);
+        return true;
+    };
+    return { onChange, collect, peek, replace, slots, move };
 }
 
 // ------------------------------------------------------------------- apply

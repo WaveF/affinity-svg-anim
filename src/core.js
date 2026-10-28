@@ -13,8 +13,8 @@ const MAX_TRACKS = 8;
 const DEFAULT_SUFFIX = '__anim';
 const MAX_SUFFIX_LENGTH = 32;
 
-const TYPES = ['none', 'fade', 'move', 'rotate', 'scale', 'draw', 'count', 'clock', 'frames'];
-const TYPE_LABELS = ['None', 'Fade', 'Move', 'Rotate', 'Scale', 'Draw stroke', 'Count number', 'Clock', 'Frames'];
+const TYPES = ['none', 'fade', 'move', 'rotate', 'scale', 'skew', 'draw', 'count', 'clock', 'frames'];
+const TYPE_LABELS = ['None', 'Fade', 'Move', 'Rotate', 'Scale', 'Skew', 'Draw stroke', 'Count number', 'Clock', 'Frames'];
 const TARGETS = ['self', 'children'];
 const TARGET_LABELS = ['Element', 'Each child'];
 // Cubic keeps the original in/out/inOut IDs so saved animations stay compatible.
@@ -65,6 +65,7 @@ const TYPE_DEFAULTS = {
     move: { x: 0, y: -20 },
     rotate: { angle: 360, pivot: 'c', $: { ease: 'linear', dir: 'normal', dur: 2 } },
     scale: { sx: 120, sy: 120, pivot: 'c' },
+    skew: { ax: 20, ay: 0, pivot: 'c' },
     draw: { mode: 'reveal', seg: 20, $: { dir: 'normal', dur: 2, loopDelay: 0.5 } },
     count: { start: null, end: 100, decimals: null, pad: false, group: false, random: false, $: { dir: 'normal', ease: 'out', dur: 2, loops: 1 } },
     clock: { format: 'HH:mm:ss' },
@@ -113,6 +114,11 @@ function normalizeTrack(raw) {
         case 'scale':
             t.sx = finiteOr(raw.sx, def.sx);
             t.sy = finiteOr(raw.sy, def.sy);
+            t.pivot = pick(PIVOTS, raw.pivot, 'c');
+            break;
+        case 'skew':
+            t.ax = finiteOr(raw.ax, def.ax);
+            t.ay = finiteOr(raw.ay, def.ay);
             t.pivot = pick(PIVOTS, raw.pivot, 'c');
             break;
         case 'draw':
@@ -213,6 +219,7 @@ function describeTrack(t) {
         case 'move': return 'Move ' + s(t.x) + ',' + s(t.y);
         case 'rotate': return 'Rotate ' + s(t.angle) + '°';
         case 'scale': return 'Scale ' + s(t.sx) + (t.sx === t.sy ? '' : '×' + s(t.sy)) + '%';
+        case 'skew': return 'Skew ' + s(t.ax) + ',' + s(t.ay) + '°';
         case 'draw': return 'Draw ' + ['reveal', 'reveal+erase', 'erase', 'travel'][DRAW_MODES.indexOf(t.mode)];
         case 'count': return 'Count →' + s(t.end);
         case 'clock': return 'Clock ' + t.format;
