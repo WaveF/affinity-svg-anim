@@ -6,6 +6,8 @@
 // "suffix" is the text this script appended to the layer name ("" = none),
 // "auto" marks a layer that had no name of its own before the suffix was added.
 // Exported SVG elements carry {"v":1,"n":<child count>,"tracks":[…]} in data-svganim.
+// With Each child tracks the payload also has "c":1, and every first-level child
+// carries data-svganim-c="<Layers panel position>" (0 = top layer).
 
 const TAG_KEY = 'svganim';
 const DATA_VERSION = 1;
@@ -13,8 +15,8 @@ const MAX_TRACKS = 8;
 const DEFAULT_SUFFIX = '__anim';
 const MAX_SUFFIX_LENGTH = 32;
 
-const TYPES = ['none', 'fade', 'move', 'rotate', 'scale', 'skew', 'draw', 'count', 'clock', 'frames'];
-const TYPE_LABELS = ['None', 'Fade', 'Move', 'Rotate', 'Scale', 'Skew', 'Draw stroke', 'Count number', 'Clock', 'Frames'];
+const TYPES = ['none', 'fade', 'blur', 'move', 'rotate', 'scale', 'skew', 'draw', 'count', 'clock', 'frames'];
+const TYPE_LABELS = ['None', 'Fade', 'Blur', 'Move', 'Rotate', 'Scale', 'Skew', 'Draw stroke', 'Count number', 'Clock', 'Frames'];
 const TARGETS = ['self', 'children'];
 const TARGET_LABELS = ['Element', 'Each child'];
 // Cubic keeps the original in/out/inOut IDs so saved animations stay compatible.
@@ -47,7 +49,8 @@ const EASE_LABELS = [
 const DIRS = ['normal', 'reverse', 'alternate', 'alternateReverse'];
 const DIR_LABELS = ['Normal', 'Reverse', 'Alternate', 'Alternate reverse'];
 const ORDERS = ['forward', 'reverse', 'center', 'random'];
-const ORDER_LABELS = ['First to last', 'Last to first', 'From centre', 'Random'];
+// Each child follows the Layers panel: 'forward' starts with the top layer.
+const ORDER_LABELS = ['Top to bottom layer', 'Bottom to top layer', 'From centre', 'Random'];
 const TRIGGERS = ['load', 'view', 'click', 'hover'];
 const TRIGGER_LABELS = ['On load', 'When visible', 'On click', 'On hover'];
 const DRAW_MODES = ['reveal', 'revealErase', 'erase', 'travel'];
@@ -62,6 +65,7 @@ const COMMON_DEFAULTS = {
 // Fields per type; '$' = timing preset applied when a track is first given this type.
 const TYPE_DEFAULTS = {
     fade: { from: 100, to: 0 },
+    blur: { from: 0, to: 10 },
     move: { x: 0, y: -20 },
     rotate: { angle: 360, pivot: 'c', $: { ease: 'linear', dir: 'normal', dur: 2 } },
     scale: { sx: 120, sy: 120, pivot: 'c' },
@@ -102,6 +106,10 @@ function normalizeTrack(raw) {
         case 'fade':
             t.from = Math.min(100, Math.max(0, finiteOr(raw.from, def.from)));
             t.to = Math.min(100, Math.max(0, finiteOr(raw.to, def.to)));
+            break;
+        case 'blur':
+            t.from = Math.max(0, finiteOr(raw.from, def.from));
+            t.to = Math.max(0, finiteOr(raw.to, def.to));
             break;
         case 'move':
             t.x = finiteOr(raw.x, def.x);
@@ -216,6 +224,7 @@ function describeTrack(t) {
     const s = (v) => String(round6(v));
     switch (t.type) {
         case 'fade': return 'Fade ' + s(t.from) + '→' + s(t.to) + '%';
+        case 'blur': return 'Blur ' + s(t.from) + '→' + s(t.to) + 'px';
         case 'move': return 'Move ' + s(t.x) + ',' + s(t.y);
         case 'rotate': return 'Rotate ' + s(t.angle) + '°';
         case 'scale': return 'Scale ' + s(t.sx) + (t.sx === t.sy ? '' : '×' + s(t.sy)) + '%';
@@ -244,6 +253,14 @@ function childCount(node) {
     let n = 0;
     try { for (const _ of node.children) n++; } catch (_) { n = 0; }
     return n;
+}
+/** First-level children, bottom layer first (SVG paint order). */
+function childNodes(node) {
+    try { return Array.from(node.children); } catch (_) { return []; }
+}
+/** Tracks that animate the first-level children instead of the element itself. */
+function usesChildTargets(t) {
+    return t.type === 'frames' || (t.target === 'children' && t.type !== 'count' && t.type !== 'clock');
 }
 function compactError(error) {
     return String(error && error.message ? error.message : error).replace(/\s+/g, ' ').trim();

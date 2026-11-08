@@ -30,7 +30,7 @@ fs.writeFileSync(path.join(DIST, 'svg-anim-runtime.min.js'), minified + '\n');
 
 // ---- Affinity script
 const NAME = 'SVG Anim';
-const DESCRIPTION = 'Animate elements and export them as an animated SVG, in one dialog. Animate mode: up to eight tracks per element (Fade, Move, Rotate, Scale, Skew, Draw stroke, Count number, Clock, Frames) with duration, delay, stagger, easing, direction, repeats and start trigger (load, visible, click, hover), stored in the element metadata and shown again when reselected; animated layers get a name suffix (default __anim). JSON preset import/export reuses the complete track setup; Clear removes all tracks on OK, and arrow buttons reorder tracks. Export mode: the document, current spread or an artboard as SVG with the animation data and an embedded or linked (jsDelivr) player, plus an optional HTML preview page.';
+const DESCRIPTION = 'Animate elements and export them as an animated SVG, in one dialog. Animate mode: up to eight tracks per element (Fade, Blur, Move, Rotate, Scale, Skew, Draw stroke, Count number, Clock, Frames; Each child animates the first-level children in Layers panel order) with duration, delay, stagger, easing, direction, repeats and start trigger (load, visible, click, hover), stored in the element metadata and shown again when reselected; animated layers get a name suffix (default __anim). JSON preset import/export reuses the complete track setup; Clear removes all tracks on OK, and arrow buttons reorder tracks. Export mode: the document, current spread or an artboard as SVG with the animation data and an embedded or linked (jsDelivr) player, plus an optional HTML preview page.';
 const header = [
     '/**',
     ' * name: ' + NAME,

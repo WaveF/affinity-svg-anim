@@ -4,7 +4,9 @@
 // Affinity's SVG export does not include tags, so animated elements are briefly
 // renamed to unique tokens (one command), exported, and the rename is undone.
 // The tokens are then located in the SVG text and replaced by the real ids plus
-// a data-svganim attribute.
+// a data-svganim attribute. First-level children of elements with Each child
+// tracks get tokens too, so the player animates exactly those children (never
+// deeper levels, whatever wrappers the SVG preset adds) in Layers panel order.
 
 const RUNTIME_FILE = 'svg-anim-runtime.min.js';
 const RUNTIME_MODES = ['embed', 'link'];
@@ -59,6 +61,22 @@ function svgPresetNames() {
     return FileExportOptions.allPresetNames.filter(n => /svg/i.test(n));
 }
 
+/** Nodes to tokenize: the animated items first (same indices), then marked children. */
+function tokenEntries(items) {
+    const entries = items.map(it => ({ node: it.node, item: it, exportName: it.exportName }));
+    for (const it of items) {
+        if (!it.data.tracks.some(usesChildTargets)) continue;
+        it.layered = true;
+        const kids = childNodes(it.node);
+        kids.forEach((kid, i) => {
+            let e = entries.find(en => en.node.isSameNode(kid));
+            if (!e) { e = { node: kid, exportName: userName(kid) }; entries.push(e); }
+            e.layer = kids.length - 1 - i; // 0 = top of the Layers panel
+        });
+    }
+    return entries;
+}
+
 function runExportWithTokens(doc, items, path, presetName, area) {
     const builder = CompoundCommandBuilder.create();
     items.forEach((it, i) => {
@@ -87,7 +105,7 @@ function runExportWithTokens(doc, items, path, presetName, area) {
     return { restored, error };
 }
 
-/** Rewrites token ids into real ids + data-svganim. Returns {svg, found:Set of item index}. */
+/** Rewrites token ids into real ids + data-svganim / data-svganim-c. Returns {svg, found:Set of entry index}. */
 function injectData(svg, items) {
     const used = new Set();
     svg.replace(/\sid="([^"]*)"/g, (m, id) => { used.add(id); return m; });
@@ -116,8 +134,13 @@ function injectData(svg, items) {
         let extra = '';
         if (id) extra += ' id="' + xmlAttr(id) + '"';
         if (name && id !== name) extra += ' affinity:id="' + xmlAttr(name) + '"';
-        const payload = { v: DATA_VERSION, n: childCount(it.node), tracks: it.data.tracks };
-        extra += " data-svganim='" + JSON.stringify(payload).replace(/&/g, '&amp;').replace(/'/g, '&apos;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + "'";
+        if (it.item) {
+            const payload = { v: DATA_VERSION, n: childCount(it.node) };
+            if (it.item.layered) payload.c = 1;
+            payload.tracks = it.item.data.tracks;
+            extra += " data-svganim='" + JSON.stringify(payload).replace(/&/g, '&amp;').replace(/'/g, '&apos;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + "'";
+        }
+        if (it.layer !== undefined) extra += ' data-svganim-c="' + it.layer + '"';
         return '<' + tagName + extra + a + selfClose + '>';
     });
     // Synced instances: tokens that never appeared but share a name with one that did.
@@ -245,6 +268,7 @@ function exportAnimated(doc, o) {
     const items = collectAnimated(areaRoots(doc, o.area));
     if (!items.length) throw new Error('No animated elements found in the chosen area.');
     for (const it of items) it.exportName = exportName(it.node, it.data);
+    const entries = tokenEntries(items);
     const denied = () => new Error('Affinity does not allow scripts to write to "' + o.folder + '". Allow this folder in Affinity\'s Scripting settings, or choose a folder on the Desktop.');
     try { fsApi.createDirectories(o.folder); } catch (e) {
         if (/PERMISSION/i.test(compactError(e))) throw denied();
@@ -253,13 +277,13 @@ function exportAnimated(doc, o) {
     const svgPath = svgPathOf(o);
     let res;
     try {
-        res = runExportWithTokens(doc, items, svgPath, o.preset, o.area);
+        res = runExportWithTokens(doc, entries, svgPath, o.preset, o.area);
     } catch (e) {
         if (/PERMISSION/i.test(compactError(e))) throw denied();
         throw e;
     }
     if (res.error) throw new Error('Affinity export failed: ' + res.error);
-    const injected = injectData(readText(svgPath), items);
+    const injected = injectData(readText(svgPath), entries);
     const finalSvg = insertRuntime(injected.svg, o.runtime, o.url);
     writeText(svgPath, finalSvg);
     const written = [svgPath];

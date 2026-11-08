@@ -2,14 +2,14 @@
 
 在 Affinity 中给元素设置动画，导出为可直接播放的 SVG。
 
-- **Affinity 脚本** `dist/svg-anim-v0.4.1.js`：用一个对话框设置动画和导出。动画参数保存在元素的元数据里，重新选中元素时会显示出来。
+- **Affinity 脚本** `dist/svg-anim-v0.5.0.js`：用一个对话框设置动画和导出。动画参数保存在元素的元数据里，重新选中元素时会显示出来。
 - **播放器** `dist/svg-anim-runtime.min.js`：无依赖，约 13 KB，导出时可以内嵌进 SVG，也可以通过 jsDelivr 引用。
 
 本项目由 [affinity-svg](https://gitee.com/wavef/affinity-svg) 发展而来，但不兼容旧版用图层名写的 `{{…}}` 表达式。
 
 ## 安装
 
-1. 下载 [`dist/svg-anim-v0.4.1.js`](dist/svg-anim-v0.4.1.js)。
+1. 下载 [`dist/svg-anim-v0.5.0.js`](dist/svg-anim-v0.5.0.js)。
 2. 在 Affinity 的 Scripts 面板中添加该脚本。
 3. 导出文件默认保存到 `~/Downloads/SVG Anim`。如果 Affinity 提示没有写入权限，请在 Affinity 设置 › Scripting 中允许这个文件夹，或者改用桌面上的文件夹。
 
@@ -20,7 +20,8 @@
 ### Animate（有选区时默认进入此模式）
 
 - 每个元素最多 8 条 Track，各 Track 同时播放、效果叠加。Tracks 区下方用两行显示 1～4 和 5～8 的简述。最底部的 ← / → 与相邻轨道交换完整参数（包含空槽），选中状态跟随移动；Track 1 禁用 ←，Track 8 禁用 →，不循环跳转。轨道顺序与参数在点击 OK 后一起应用。
-- 动画类型：Fade、Move（文档像素）、Rotate（顺时针，9 点轴心）、Scale、Skew（X/Y 倾斜，9 点轴心）、Draw stroke（描边绘制）、Count number（数字滚动）、Clock（时钟）、Frames（逐个显示子元素）。
+- 动画类型：Fade、Blur（高斯模糊，文档像素半径）、Move（文档像素）、Rotate（顺时针，9 点轴心）、Scale、Skew（X/Y 倾斜，9 点轴心）、Draw stroke（描边绘制）、Count number（数字滚动）、Clock（时钟）、Frames（逐个显示子元素）。
+- Apply to：Element 或 Each child。Each child 只作用于**第一级子对象**（不深入子组内部），按图层面板顺序播放：Stagger order 的 Top to bottom layer 从最上面的图层开始，Bottom to top layer 反之。Frames 逐个显示第一级子对象，从最下层开始、最上层最后。
 - Timing：Duration、Delay、Stagger（作用于每个子元素时可设）、Easing、Direction、Play count、Pause between plays。
 - Easing：31 种曲线，包括 Linear，以及 Sine / Quad / Cubic / Quart / Quint / Expo / Circ / Back / Elastic / Bounce 的 in、out、in-out。原来的 Ease in / out / in-out 改名为 Cubic in / out / in-out，曲线和保存的数据标识不变。
 - Start：On load / When visible / On click / On hover。
@@ -36,7 +37,7 @@
   - **Embed**：把播放器内嵌进 SVG，生成一个可离线播放的单文件。
   - **Link**：引用 jsDelivr 上的播放器，地址固定到发布版本：
     ```
-    https://cdn.jsdelivr.net/gh/WaveF/affinity-svg-anim@v0.4.1/dist/svg-anim-runtime.min.js
+    https://cdn.jsdelivr.net/gh/WaveF/affinity-svg-anim@v0.5.0/dist/svg-anim-runtime.min.js
     ```
 
 ### Config（顶部 Mode 右侧）
@@ -82,11 +83,11 @@ SVG 中的脚本只有在以下三种方式下才会运行：直接打开 SVG、
 - `suffix`：脚本加在图层名后的后缀。
 - `auto`：图层原本没有名字，是脚本用默认名补上的；导出时这类图层不写 id。
 
-导出的元素带有 `data-svganim='{"v":1,"n":<Affinity 子元素数>,"tracks":[…]}'`。播放器用 `n` 跳过 Affinity 为剪切、效果等额外生成的匿名 `<g>`。
+导出的元素带有 `data-svganim='{"v":1,"n":<Affinity 子元素数>,"c":1,"tracks":[…]}'`。含 Each child / Frames 轨道时带 `"c":1`，并给每个第一级子对象写 `data-svganim-c="<图层位置>"`（0 = 图层面板最上层），播放器只动画这些子对象，不受 SVG 预设额外生成的匿名 `<g>` 影响。没有这些标记的旧 SVG 仍按 `n` 跳过匿名 `<g>`，按文档顺序播放。
 
 | 字段 | 取值 |
 | --- | --- |
-| `type` | `fade` `move` `rotate` `scale` `skew` `draw` `count` `clock` `frames` |
+| `type` | `fade` `blur` `move` `rotate` `scale` `skew` `draw` `count` `clock` `frames` |
 | `target` | `self` / `children` |
 | `dur` `delay` `stagger` `loopDelay` | 秒 |
 | `order` | `forward` `reverse` `center` `random` |
@@ -95,6 +96,7 @@ SVG 中的脚本只有在以下三种方式下才会运行：直接打开 SVG、
 | `loops` | 播放次数，0 = 无限 |
 | `trigger` | `load` `view` `click` `hover` |
 | fade | `from` `to`（%） |
+| blur | `from` `to`（模糊半径，文档像素，≥ 0；即 SVG `stdDeviation`） |
 | move | `x` `y`（文档像素） |
 | rotate | `angle`（度，顺时针为正），`pivot`：`tl tc tr cl c cr bl bc br` |
 | scale | `sx` `sy`（%），`pivot` |
@@ -125,12 +127,14 @@ npm run test:easing        # 全部 easing、旧版兼容、内嵌/外链播放�
 ```bash
 npm run test:dialog
 npm run test:order:affinity  # 轨道交换、边界、空槽、Clear 与撤销
+npm run test:children:affinity # 第一级子对象标记、图层顺序、Blur 表单；结果留在 ~/Desktop/svganim-test-out
 npm run test:config:affinity # 真实控件、JSON 文件读写、Skew、应用和撤销
 npm run test:easing:affinity # 31 种 easing 的原生对话框保存和回显；只创建并关闭自己的临时文档
 cp <affinity-svg>/example/images/AppleWatch.af ~/Desktop/svganim-test-AppleWatch.af
 npm run test:export        # 结果留在 ~/Desktop/svganim-test-out
 python tests/runtime_test.py   # 需要 Playwright，测试播放器数值
 python tests/real_test.py      # 在浏览器中播放 test:export 的导出结果
+python tests/children_blur_test.py # 播放 test:children:affinity 的结果：图层顺序、只动第一级、Blur 数值
 rm -rf ~/Desktop/svganim-test-out ~/Desktop/svganim-test-AppleWatch.af
 ```
 
@@ -138,6 +142,14 @@ rm -rf ~/Desktop/svganim-test-out ~/Desktop/svganim-test-AppleWatch.af
 
 1. 修改 `package.json` 中的 `version`，然后执行 `npm run build`。
 2. 提交 `dist/`，打 tag `v<版本>` 并推送。脚本中的 jsDelivr 地址固定到这个 tag。
+
+## v0.5.0
+
+- Each child 只作用于第一级子对象：单个子组不再被展开成它的子元素，更深层级不参与动画。
+- Each child 按图层面板顺序播放，Stagger order 改名为 Top to bottom layer / Bottom to top layer / From centre / Random。注意：已有动画在重新导出后，原 First to last 的方向会变为从最上层图层开始。
+- 新增 Blur 动画类型：From / To 模糊半径（文档像素），可用于 Element 或 Each child，多条 Blur 轨道按高斯模糊叠加，可与其他轨道组合。
+- 修复：Rotate / Scale / Skew 的 Pivot 总是被保存为中心（原生控件返回枚举对象，旧版按数字比较）。
+- 导出时临时为第一级子对象改名以写入 `data-svganim-c`，导出后与动画元素一起撤销恢复。
 
 ## v0.4.1
 

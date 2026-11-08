@@ -4,7 +4,9 @@
  * Self-contained (no dependencies). Runs on the <svg> that contains this script,
  * both when the SVG is opened directly and when it is inlined into an HTML page.
  *
- * data-svganim = {"v":1,"n":<child count in Affinity>,"tracks":[{type, ...}]}
+ * data-svganim = {"v":1,"n":<child count in Affinity>,"c":1,"tracks":[{type, ...}]}
+ * data-svganim-c = "<Layers panel position>" on each first-level child when "c" is set
+ * (0 = top layer). SVGs without these marks fall back to the document structure.
  */
 (function () {
     'use strict';
@@ -98,6 +100,7 @@
     }
     // Affinity may wrap a node's children in extra anonymous groups (clipping, effects).
     // Descend through single anonymous <g> wrappers until the expected child count is found.
+    // Only used for SVGs exported before first-level children were marked.
     function childTargets(el, expected) {
         var list = renderChildren(el);
         var guard = 0;
@@ -203,7 +206,10 @@
             g: g, bbox: bbox,
             inv: [d / det, -b / det, -c / det, a / det],
             flip: det < 0 ? -1 : 1,
-            moves: [], rotates: [], scales: [], skews: [], opacity: 1, dirty: false
+            // Blur radii are document pixels; stdDeviation is in the wrapper's user space.
+            unit: 1 / Math.sqrt(Math.abs(det)),
+            moves: [], rotates: [], scales: [], skews: [], opacity: 1, dirty: false,
+            blur: 0, filter: null, blurred: false
         };
         el.__svgAnimSlot = slot;
         slots.push(slot);
@@ -215,6 +221,45 @@
         return [bb.x + bb.width * p[0], bb.y + bb.height * p[1]];
     }
     function r4(v) { return Math.round(v * 10000) / 10000; }
+    var defs = null, filterCount = 0;
+    function blurFilter(s) {
+        if (s.filter) return s.filter;
+        if (!defs) {
+            defs = document.createElementNS(SVGNS, 'defs');
+            defs.setAttribute('class', 'svganim-defs');
+            root.appendChild(defs);
+        }
+        var id;
+        // Several exported SVGs may be inlined into one HTML page.
+        do { id = 'svganim-blur-' + (++filterCount); } while (document.getElementById(id));
+        var f = document.createElementNS(SVGNS, 'filter');
+        f.setAttribute('id', id);
+        f.setAttribute('filterUnits', 'userSpaceOnUse');
+        f.setAttribute('color-interpolation-filters', 'sRGB');
+        var fe = document.createElementNS(SVGNS, 'feGaussianBlur');
+        f.appendChild(fe);
+        defs.appendChild(f);
+        s.filter = { el: f, fe: fe, url: 'url(#' + id + ')' };
+        return s.filter;
+    }
+    function flushBlur(s) {
+        var sigma = Math.sqrt(s.blur) * s.unit;
+        s.blur = 0;
+        if (!(sigma > 0.01)) {
+            if (s.blurred) { s.g.removeAttribute('filter'); s.blurred = false; }
+            return;
+        }
+        // The wrapper's own transform does not change its local box; getBBox ignores
+        // strokes and the blur itself, so leave room for both.
+        var f = blurFilter(s), bb = s.bbox;
+        var pad = 3 * sigma + 0.1 * Math.max(bb.width, bb.height) + 2;
+        f.el.setAttribute('x', r4(bb.x - pad));
+        f.el.setAttribute('y', r4(bb.y - pad));
+        f.el.setAttribute('width', r4(bb.width + 2 * pad));
+        f.el.setAttribute('height', r4(bb.height + 2 * pad));
+        f.fe.setAttribute('stdDeviation', r4(sigma));
+        if (!s.blurred) { s.g.setAttribute('filter', f.url); s.blurred = true; }
+    }
     function flushSlot(s) {
         var ops = s.moves.concat(s.rotates, s.scales, s.skews);
         if (ops.length) s.g.setAttribute('transform', ops.join(' '));
@@ -223,6 +268,7 @@
         else if (s.dirty) s.g.style.opacity = '';
         s.dirty = ops.length > 0 || s.opacity !== 1;
         s.moves.length = 0; s.rotates.length = 0; s.scales.length = 0; s.skews.length = 0; s.opacity = 1;
+        flushBlur(s);
     }
 
     // --------------------------------------------------------------- players
@@ -265,7 +311,7 @@
     Player.prototype.setup = function () {
         var self = this, spec = this.spec;
         switch (this.type) {
-            case 'fade': case 'move': case 'rotate': case 'scale': case 'skew':
+            case 'fade': case 'blur': case 'move': case 'rotate': case 'scale': case 'skew':
                 this.slots = this.targets.map(slotFor);
                 break;
             case 'draw':
@@ -349,6 +395,15 @@
                     pr = this.progress(i);
                     var from = num(s.from, 100) / 100, to = num(s.to, 0) / 100;
                     this.slots[i].opacity *= Math.max(0, Math.min(1, from + (to - from) * pr.e));
+                }
+                break;
+            case 'blur':
+                var b0 = Math.max(0, num(s.from, 0)), b1 = Math.max(0, num(s.to, 0));
+                for (i = 0; i < n; i++) {
+                    pr = this.progress(i);
+                    // Several blur tracks combine like successive Gaussian blurs; overshoot stays >= 0.
+                    var radius = Math.max(0, b0 + (b1 - b0) * pr.e);
+                    this.slots[i].blur += radius * radius;
                 }
                 break;
             case 'move':
@@ -445,12 +500,28 @@
         if (!data || !data.tracks || !data.tracks.length) continue;
         entries.push({ el: nodes[i], data: data });
     }
+    // Marked first-level children belong to their nearest marked-parent ancestor.
+    entries.forEach(function (en) { if (en.data.c) en.el.__svgAnimKids = []; });
+    var marked = root.querySelectorAll('[data-svganim-c]');
+    for (var m = 0; m < marked.length; m++) {
+        for (var p = marked[m].parentNode; p && p.nodeType === 1; p = p.parentNode) {
+            if (p.__svgAnimKids) { p.__svgAnimKids.push({ el: marked[m], layer: num(marked[m].getAttribute('data-svganim-c'), 0) }); break; }
+            if (p === root) break;
+        }
+    }
+    // Each child plays in Layers panel order (top layer first); Frames keep top child last.
+    function markedTargets(el, spec) {
+        var sign = spec.type === 'frames' ? -1 : 1;
+        return el.__svgAnimKids.slice().sort(function (a, b) { return sign * (a.layer - b.layer); }).map(function (k) { return k.el; });
+    }
     // Resolve every target before wrapping anything, so wrappers never show up as "children".
     var pending = [];
     entries.forEach(function (en) {
         en.data.tracks.forEach(function (spec) {
             if (!spec || !spec.type || spec.type === 'none') return;
-            pending.push({ el: en.el, spec: spec, targets: usesChildren(spec) ? childTargets(en.el, num(en.data.n, -1)) : [en.el] });
+            var targets = [en.el];
+            if (usesChildren(spec)) targets = en.el.__svgAnimKids ? markedTargets(en.el, spec) : childTargets(en.el, num(en.data.n, -1));
+            pending.push({ el: en.el, spec: spec, targets: targets });
         });
     });
     pending.forEach(function (pd) {

@@ -14,6 +14,8 @@ function selectedNodes(doc) {
 const ANCHOR_NAMES = { tl: 'TopLeft', tc: 'TopCentre', tr: 'TopRight', cl: 'CentreLeft', c: 'Centre', cr: 'CentreRight', bl: 'BottomLeft', bc: 'BottomCentre', br: 'BottomRight' };
 function anchorValue(key) { return SpatialAnchor[ANCHOR_NAMES[key] || 'Centre'].value; }
 function anchorKey(value) {
+    // The native control returns the SpatialAnchor enum object, not its number.
+    if (value && typeof value === 'object') value = value.value;
     for (const k of PIVOTS) if (SpatialAnchor[ANCHOR_NAMES[k]].value === value) return k;
     return 'c';
 }
@@ -82,6 +84,8 @@ function buildAnimatePanel(doc, left, right, state) {
     c.target = fx.addButtonSet('Apply to', TARGET_LABELS, 0);
     c.fadeFrom = pct(fx, 'From opacity', 100, 0, 100);
     c.fadeTo = pct(fx, 'To opacity', 0, 0, 100);
+    c.blurFrom = fx.addUnitValueEditor('From blur radius', UnitType.Pixel, doc.units, 0, 0, null);
+    c.blurTo = fx.addUnitValueEditor('To blur radius', UnitType.Pixel, doc.units, 10, 0, null);
     c.moveX = fx.addUnitValueEditor('Move X', UnitType.Pixel, doc.units, 0);
     c.moveY = fx.addUnitValueEditor('Move Y', UnitType.Pixel, doc.units, -20);
     c.angle = fx.addUnitValueEditor('Angle (clockwise)', UnitType.Degree, UnitType.Degree, 360);
@@ -100,7 +104,7 @@ function buildAnimatePanel(doc, left, right, state) {
     c.countRandom = fx.addSwitch('Random value each repeat', false);
     c.clockFormat = fx.addTextBox('Format', 'HH:mm:ss');
     c.clockHint = fx.addStaticText(null, 'Tokens: YYYY MM DD HH hh mm ss A. Shows the viewer\'s local time; timing settings are ignored.').setIsFullWidth();
-    c.framesHint = fx.addStaticText(null, 'Shows one child at a time, top child last. Duration is one pass through all children.').setIsFullWidth();
+    c.framesHint = fx.addStaticText(null, 'Shows one first-level child at a time, bottom layer first and top layer last. Duration is one pass through all children.').setIsFullWidth();
     c.typeHint = fx.addStaticText(null, 'Choose a type to animate this track. Set every track to None to remove the animation.').setIsFullWidth();
 
     c.effectSpace = fx.addStaticText(null, '').setIsFullWidth();
@@ -139,7 +143,8 @@ function readForm(c) {
         dur: c.dur.value, delay: c.delay.value, stagger: c.stagger.value,
         order: ORDERS[c.order.selectedIndex], ease: EASES[c.ease.selectedIndex], dir: DIRS[c.dir.selectedIndex],
         loops: c.loops.value, loopDelay: c.loopDelay.value, trigger: TRIGGERS[c.trigger.selectedIndex],
-        from: c.fadeFrom.value, to: c.fadeTo.value,
+        from: type === 'blur' ? round6(c.blurFrom.value) : c.fadeFrom.value,
+        to: type === 'blur' ? round6(c.blurTo.value) : c.fadeTo.value,
         x: round6(c.moveX.value), y: round6(c.moveY.value),
         angle: c.angle.value,
         sx: c.sx.value, sy: c.sy.value,
@@ -159,6 +164,8 @@ function loadForm(c, track) {
     const type = t ? t.type : 'none';
     const pre = t || newTrack('fade');
     const ofType = (k, d) => (t && t[k] !== undefined && t[k] !== null) ? t[k] : d;
+    // Fade and Blur both store from/to; keep each form pair to its own type.
+    const ofKind = (kind, k, d) => t && t.type === kind ? ofType(k, d) : d;
     c.type.selectedIndex = TYPES.indexOf(type);
     c.target.selectedIndex = TARGETS.indexOf(pre.target);
     c.dur.value = pre.dur; c.delay.value = pre.delay; c.stagger.value = pre.stagger;
@@ -167,7 +174,8 @@ function loadForm(c, track) {
     c.dir.selectedIndex = DIRS.indexOf(pre.dir);
     c.loops.value = pre.loops; c.loopDelay.value = pre.loopDelay;
     c.trigger.selectedIndex = TRIGGERS.indexOf(pre.trigger);
-    c.fadeFrom.value = ofType('from', 100); c.fadeTo.value = ofType('to', 0);
+    c.fadeFrom.value = ofKind('fade', 'from', 100); c.fadeTo.value = ofKind('fade', 'to', 0);
+    c.blurFrom.value = ofKind('blur', 'from', 0); c.blurTo.value = ofKind('blur', 'to', 10);
     c.moveX.value = ofType('x', 0); c.moveY.value = ofType('y', -20);
     c.angle.value = ofType('angle', 360);
     c.sx.value = ofType('sx', 120); c.sy.value = ofType('sy', 120);
@@ -188,6 +196,7 @@ function loadForm(c, track) {
 
 const TYPE_CONTROLS = {
     fade: ['fadeFrom', 'fadeTo'],
+    blur: ['blurFrom', 'blurTo'],
     move: ['moveX', 'moveY'],
     rotate: ['angle', 'pivot'],
     scale: ['sx', 'sy', 'pivot'],
